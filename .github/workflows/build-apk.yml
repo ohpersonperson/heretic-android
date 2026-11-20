@@ -1,0 +1,40 @@
+name: Build Heretic APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install platform and build-tools
+        run: |
+          yes | sdkmanager --licenses > /dev/null || true
+          sdkmanager "platforms;android-34" "build-tools;34.0.0"
+
+      - name: Build APK
+        run: ./build.sh
+
+      - name: Verify APK signature
+        run: "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify heretic.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: heretic-apk
+          path: heretic.apk
+          if-no-files-found: error
