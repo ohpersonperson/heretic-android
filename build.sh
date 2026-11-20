@@ -16,7 +16,11 @@ rm -rf build && mkdir -p build/gen build/obj build/dex
 "$BT/aapt2" link -o build/heretic-unsigned.apk \
   -I "$PLATFORM" --manifest app/src/main/AndroidManifest.xml \
   --java build/gen build/res.zip --auto-add-overlay
-javac -source 8 -target 8 -bootclasspath "$PLATFORM" \
+# NOTE: android.jar must be on -classpath, NOT -bootclasspath.
+# -bootclasspath replaces the JDK bootstrap classes, hiding
+# java.lang.invoke.LambdaMetafactory, so javac fails on lambdas:
+# "cannot find symbol: method metafactory ... interface LambdaMetafactory".
+javac -source 8 -target 8 -classpath "$PLATFORM" \
   -d build/obj build/gen/com/heretic/chat/R.java \
   app/src/main/java/com/heretic/chat/MainActivity.java
 "$BT/d8" --output build/dex build/obj/com/heretic/chat/*.class
