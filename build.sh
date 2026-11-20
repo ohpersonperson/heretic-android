@@ -29,8 +29,20 @@ javac -source 8 -target 8 -classpath "$PLATFORM" \
 "$BT/d8" --lib "$PLATFORM" --output build/dex build/obj/com/heretic/chat/*.class
 python3 -c "import zipfile; z=zipfile.ZipFile('build/heretic-unsigned.apk','a'); z.write('build/dex/classes.dex','classes.dex'); z.close()"
 "$BT/zipalign" -f 4 build/heretic-unsigned.apk build/heretic-aligned.apk
-# keytool does not create parent dirs: a fresh runner has no ~/.android/.
-mkdir -p ~/.android
-[ -f ~/.android/heretic-debug.keystore ] || keytool -genkeypair -v -keystore ~/.android/heretic-debug.keystore -storepass android -alias heretic -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Heretic, O=Heretic"
-"$BT/apksigner" sign --ks ~/.android/heretic-debug.keystore --ks-pass pass:android --out heretic.apk build/heretic-aligned.apk
+# Release signing: in CI the permanent keystore arrives as the
+# KEYSTORE_BASE64 secret, so updates install in place. Locally, with
+# no secret present, fall back to the throwaway debug keystore as before.
+if [ -n "${KEYSTORE_BASE64:-}" ]; then
+  printf '%s' "$KEYSTORE_BASE64" | base64 -d > build/release.keystore
+  "$BT/apksigner" sign --ks build/release.keystore --ks-type PKCS12 \
+    --ks-pass "pass:$KEYSTORE_PASSWORD" --ks-key-alias "${KEY_ALIAS:-heretic}" \
+    --key-pass "pass:$KEY_PASSWORD" \
+    --out heretic.apk build/heretic-aligned.apk
+  rm -f build/release.keystore
+else
+  # keytool does not create parent dirs: a fresh runner has no ~/.android/.
+  mkdir -p ~/.android
+  [ -f ~/.android/heretic-debug.keystore ] || keytool -genkeypair -v -keystore ~/.android/heretic-debug.keystore -storepass android -alias heretic -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Heretic, O=Heretic"
+  "$BT/apksigner" sign --ks ~/.android/heretic-debug.keystore --ks-pass pass:android --out heretic.apk build/heretic-aligned.apk
+fi
 "$BT/apksigner" verify heretic.apk && ls -l heretic.apk
