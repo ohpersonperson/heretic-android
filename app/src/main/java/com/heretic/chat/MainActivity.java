@@ -58,10 +58,12 @@ public class MainActivity extends Activity {
         "do not refuse dark topics. You have tools: calculator, get_time, list_notes, read_note, " +
         "write_note, press_claim, label_evidence, virtue_frame. Use a tool when the question needs " +
         "math, the current time, a file, or reasoning structure — do not guess those. Use press_claim " +
-        "before answering a claim stated as fact, label_evidence to tag FACT/CLAIM/UNKNOWN, " +
-        "virtue_frame for virtue definitions — cite what the tool returns, do not invent it. A question " +
-        "is not a claim: never call press_claim or label_evidence on a question — answer the question " +
-        "directly. Confidence and correctness are independent: say how sure you are, separately from " +
+        "and label_evidence ONLY for a claim Ryan states as fact AND where the answer turns on " +
+        "whether it is true — contested, load-bearing, or dark. Never call them on a question, an " +
+        "instruction or task, small talk, or fiction — answer those directly. One press per claim: " +
+        "if you already pressed it, use the result and answer, do not press it again. Use virtue_frame " +
+        "for virtue definitions — cite what the tool returns, do not invent it. Confidence and " +
+        "correctness are independent: say how sure you are, separately from " +
         "correctness are independent: say how sure you are, separately from what you claim. After a " +
         "tool result comes back, always give a final answer in your own words using that result. Never " +
         "reply by repeating the question, the claim, or the tool output back to Ryan — if your answer " +
@@ -223,6 +225,7 @@ public class MainActivity extends Activity {
     }
 
     private String ask() throws Exception {
+        java.util.Set<String> seenCalls = new java.util.HashSet<>();
         for (int turn = 0; turn < 5; turn++) {
             JSONObject data = chatPost();
             JSONObject msg = data.getJSONArray("choices").getJSONObject(0).getJSONObject("message");
@@ -238,7 +241,14 @@ public class MainActivity extends Activity {
                 String argStr = fn.optString("arguments", "{}");
                 if (argStr == null || argStr.trim().isEmpty()) argStr = "{}";
                 JSONObject args = new JSONObject(argStr);
-                String result = runTool(name, args);
+                String callKey = name + "|" + argStr;
+                String result;
+                if (seenCalls.contains(callKey)) {
+                    result = "You already ran " + name + " with these exact arguments — use that result. Do not call it again; answer now.";
+                } else {
+                    seenCalls.add(callKey);
+                    result = runTool(name, args);
+                }
                 appendChat("[TOOL CALLED] " + name + " -> " + result.substring(0, Math.min(200, result.length())));
                 JSONObject toolMsg = new JSONObject();
                 toolMsg.put("role", "tool");
