@@ -23,9 +23,14 @@ rm -rf build && mkdir -p build/gen build/obj build/dex
 javac -source 8 -target 8 -classpath "$PLATFORM" \
   -d build/obj build/gen/com/heretic/chat/R.java \
   app/src/main/java/com/heretic/chat/MainActivity.java
-"$BT/d8" --output build/dex build/obj/com/heretic/chat/*.class
+# --lib android.jar so d8 can resolve the interfaces lambdas desugar
+# against (Runnable, View$OnClickListener, Activity). Without it d8
+# warns they "were not found" and the desugaring may be incomplete.
+"$BT/d8" --lib "$PLATFORM" --output build/dex build/obj/com/heretic/chat/*.class
 python3 -c "import zipfile; z=zipfile.ZipFile('build/heretic-unsigned.apk','a'); z.write('build/dex/classes.dex','classes.dex'); z.close()"
 "$BT/zipalign" -f 4 build/heretic-unsigned.apk build/heretic-aligned.apk
+# keytool does not create parent dirs: a fresh runner has no ~/.android/.
+mkdir -p ~/.android
 [ -f ~/.android/heretic-debug.keystore ] || keytool -genkeypair -v -keystore ~/.android/heretic-debug.keystore -storepass android -alias heretic -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Heretic, O=Heretic"
 "$BT/apksigner" sign --ks ~/.android/heretic-debug.keystore --ks-pass pass:android --out heretic.apk build/heretic-aligned.apk
 "$BT/apksigner" verify heretic.apk && ls -l heretic.apk
