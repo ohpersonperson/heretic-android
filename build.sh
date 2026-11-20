@@ -33,7 +33,7 @@ python3 -c "import zipfile; z=zipfile.ZipFile('build/heretic-unsigned.apk','a');
 # KEYSTORE_BASE64 secret, so updates install in place. Locally, with
 # no secret present, fall back to the throwaway debug keystore as before.
 if [ -n "${KEYSTORE_BASE64:-}" ]; then
-  printf '%s' "$KEYSTORE_BASE64" | base64 -d > build/release.keystore
+  printf '%s' "$KEYSTORE_BASE64" | tr -d ' \t\r\n' | base64 -d > build/release.keystore
   "$BT/apksigner" sign --ks build/release.keystore --ks-type PKCS12 \
     --ks-pass "pass:$KEYSTORE_PASSWORD" --ks-key-alias "${KEY_ALIAS:-heretic}" \
     --key-pass "pass:$KEY_PASSWORD" \
