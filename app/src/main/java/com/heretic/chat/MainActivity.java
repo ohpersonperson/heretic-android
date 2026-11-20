@@ -1,7 +1,11 @@
 package com.heretic.chat;
 
 import android.app.Activity;
+import android.graphics.Color;
 import android.os.Bundle;
+import android.text.SpannableStringBuilder;
+import android.text.Spanned;
+import android.text.style.ForegroundColorSpan;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ScrollView;
@@ -101,9 +105,35 @@ public class MainActivity extends Activity {
         new Thread(this::checkHealth).start();
     }
 
+    // Terminal colors: Heretic speaks green, Ryan speaks amber, tools are dim.
+    private static final int COLOR_HERETIC = Color.parseColor("#4ade80");
+    private static final int COLOR_HERETIC_BODY = Color.parseColor("#c9e7c9");
+    private static final int COLOR_YOU = Color.parseColor("#ffb454");
+    private static final int COLOR_YOU_BODY = Color.parseColor("#e8e0d0");
+    private static final int COLOR_TOOL = Color.parseColor("#8a8a8a");
+
     private void appendChat(final String line) {
         runOnUiThread(() -> {
-            chatText.append("\n\n" + line);
+            SpannableStringBuilder sb = new SpannableStringBuilder("\n\n");
+            int prefixLen = 0;
+            int bodyColor = Color.parseColor("#d0d0d0");
+            if (line.startsWith("You: ")) {
+                prefixLen = 5;
+                bodyColor = COLOR_YOU_BODY;
+                sb.append(line);
+                sb.setSpan(new ForegroundColorSpan(COLOR_YOU), 2, 2 + prefixLen, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                sb.setSpan(new ForegroundColorSpan(bodyColor), 2 + prefixLen, sb.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+            } else if (line.startsWith("Heretic: ")) {
+                prefixLen = 9;
+                bodyColor = COLOR_HERETIC_BODY;
+                sb.append(line);
+                sb.setSpan(new ForegroundColorSpan(COLOR_HERETIC), 2, 2 + prefixLen, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                sb.setSpan(new ForegroundColorSpan(bodyColor), 2 + prefixLen, sb.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+            } else {
+                sb.append(line);
+                sb.setSpan(new ForegroundColorSpan(COLOR_TOOL), 2, sb.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+            }
+            chatText.append(sb);
             scrollView.post(() -> scrollView.fullScroll(ScrollView.FOCUS_DOWN));
         });
     }
