@@ -58,10 +58,14 @@ public class MainActivity extends Activity {
         "do not refuse dark topics. You have tools: calculator, get_time, list_notes, read_note, " +
         "write_note, press_claim, label_evidence, virtue_frame. Use a tool when the question needs " +
         "math, the current time, a file, or reasoning structure — do not guess those. Use press_claim " +
-        "before answering a contested claim, label_evidence to tag FACT/CLAIM/UNKNOWN, virtue_frame " +
-        "for virtue definitions — cite what the tool returns, do not invent it. Confidence and " +
+        "before answering a claim stated as fact, label_evidence to tag FACT/CLAIM/UNKNOWN, " +
+        "virtue_frame for virtue definitions — cite what the tool returns, do not invent it. A question " +
+        "is not a claim: never call press_claim or label_evidence on a question — answer the question " +
+        "directly. Confidence and correctness are independent: say how sure you are, separately from " +
         "correctness are independent: say how sure you are, separately from what you claim. After a " +
-        "tool result comes back, always give a final answer using that result. Answer briefly and plainly.";
+        "tool result comes back, always give a final answer in your own words using that result. Never " +
+        "reply by repeating the question, the claim, or the tool output back to Ryan — if your answer " +
+        "would just be his words again, write it fresh instead. Answer briefly and plainly.";
 
     private static final Map<String, String> VIRTUES = new HashMap<>();
     static {
@@ -183,6 +187,16 @@ public class MainActivity extends Activity {
                 answer = "[error talking to Heretic: " + e.getMessage() + "]";
                 try { messages.remove(messages.length() - 1); } catch (Exception ignored) {}
             }
+            // Echo guard: the 4B model can fall into parroting the question
+            // (seen 2026-11-20: every answer was "[CLAIM] <question>"). If the
+            // final answer is just the question back, nudge once and re-ask.
+            if (isEcho(answer, q)) {
+                try {
+                    messages.put(new JSONObject().put("role", "user").put("content",
+                        "That answer only repeated my question. Answer in your own words. Do not repeat the question."));
+                    answer = ask();
+                } catch (Exception ignored) {}
+            }
             final String a = answer;
             try {
                 messages.put(new JSONObject().put("role", "assistant").put("content", a));
@@ -194,6 +208,18 @@ public class MainActivity extends Activity {
             appendChat("Heretic: " + a);
             runOnUiThread(() -> sendButton.setEnabled(true));
         }).start();
+    }
+
+    private static String normEcho(String s) {
+        return s.toLowerCase().replaceAll("[^a-z0-9 ]", " ").replaceAll("\\s+", " ").trim();
+    }
+
+    private static boolean isEcho(String answer, String question) {
+        if (answer == null || question == null) return false;
+        String a = normEcho(answer.trim().replaceFirst("(?i)^\\[(CLAIM|FACT|UNKNOWN)\\]\\s*", ""));
+        String q = normEcho(question);
+        if (a.isEmpty() || q.isEmpty()) return false;
+        return a.equals(q) || (a.contains(q) && a.length() <= q.length() + 12);
     }
 
     private String ask() throws Exception {
