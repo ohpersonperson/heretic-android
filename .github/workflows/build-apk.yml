@@ -8,6 +8,12 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      # Use the runner's preinstalled Android SDK. Do NOT use
+      # android-actions/setup-android@v3: it installs the obsolete
+      # `tools` package by default and sdkmanager exits 1
+      # ("Failed to find package 'tools'").
+      ANDROID_HOME: /usr/local/lib/android/sdk
     steps:
       - name: Check out
         uses: actions/checkout@v4
@@ -18,11 +24,9 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
       - name: Install platform and build-tools
         run: |
+          export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$PATH"
           yes | sdkmanager --licenses > /dev/null || true
           sdkmanager "platforms;android-34" "build-tools;34.0.0"
 
